@@ -11,7 +11,7 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
     Users expect to stay logged in for days or weeks without re-entering credentials.
     Therefore, refresh tokens act as a "long-term key" that can request new access tokens without asking the user to log in again.
 
-  ➔ **Refresh tokens balance security and usability**.
+➔ **Refresh tokens balance security and usability**.
 
 ### 2. Why must we support Token Revocation?
 - **Risk of Stolen Tokens**:
@@ -23,7 +23,7 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
 - **User Control**:
     Users can manually logout to revoke a token, or the server can auto-revoke if suspicious behavior is detected.
 
-  ➔ **Revocation is critical to terminate compromised sessions early**.
+➔ **Revocation is critical to terminate compromised sessions early**.
 
 ### 3. Why do we need a JTI (JWT ID)?
 - **Uniquely Identify Tokens**:
@@ -38,7 +38,7 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
 - **Redis Integration**:
     Revoked JTIs can be stored in Redis for fast, scalable lookup without querying the database on every request.
 
-  ➔ **JTI ensures that each token can be controlled independently and securely**.
+➔ **JTI ensures that each token can be controlled independently and securely**.
 
 ### 4. Why do we use Redis for Revoked Tokens?
    - **Performance**: Instead of querying the database on every request to check if a token has been revoked, we store revoked JTIs in Redis.
