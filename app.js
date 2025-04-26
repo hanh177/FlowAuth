@@ -54,7 +54,7 @@ app.post("/auth/register", async (req, res) => {
   }
 });
 
-app.post("auth/logout", async (req, res) => {
+app.post("/auth/logout", async (req, res) => {
   if (!req.decoded) {
     return res.status(401).json({ message: "Unauthorized" });
   }
@@ -62,9 +62,9 @@ app.post("auth/logout", async (req, res) => {
   res.send("Logout successful");
 });
 
-app.get("/auth/refresh", async (req, res) => {
+app.post("/auth/refresh", async (req, res) => {
   try {
-    const refresh = await userService.refreshToken(req.decoded);
+    const refresh = await userService.refreshToken(req.body.refreshToken);
     res.status(201).json(refresh);
   } catch (error) {
     res.status(400).json({ message: error.message });
