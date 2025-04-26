@@ -40,6 +40,17 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
 
   ➔ **JTI ensures that each token can be controlled independently and securely**.
 
+### 4. Why do we use Redis for Revoked Tokens?
+   - **Performance**: Instead of querying the database on every request to check if a token has been revoked, we store revoked JTIs in Redis.
+
+  -  **Scalability**: Redis operates in memory, offering extremely fast lookup times even at large scales.
+
+  - **Automatic Expiration**: When a token is revoked, its jti is stored in Redis with an expiration time equal to the remaining lifetime of the refresh token. After expiration, Redis automatically deletes the key — no manual cleanup is needed.
+  - **Support for Distributed Systems (Microservices)**: In a microservice architecture, different services might need to validate tokens independently. By storing revoked JTIs in a shared Redis instance, all services can instantly access the latest revocation data without needing centralized coordination or complex sync mechanisms.
+
+  ➔ **Redis ensures fast, scalable, and efficient revocation checking.**
+
+  
 ## Key Features
 
 ### 1. User Registration (`/auth/register`)
@@ -57,13 +68,21 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
 
 ### 4. Logout (`/auth/logout`)
 - When users log out, the corresponding refresh token is revoked.
+- The token's `jti` is added to Redis to prevent further use.
 
 ### 5. Authentication Middleware
-- All requests are validated using the `accessToken` in the request header to identify the user.
+- All protected requests are validated using the `accessToken` in the Authorization header.
+- Middleware ensures that the access token is valid and not expired.
+- Still return Unauthorized if the access token is valid, not expired but its refresh token has been invoked by checking in redis.
+
 
 ### 6. Refresh Token Management
 - Refresh tokens are stored in MongoDB with details such as `expiresAt`, `isRevoked`, and `jti` (JWT ID).
-- The system checks the status of the refresh token before issuing new tokens.
+- Revoked JTIs are cached in Redis with automatic expiration.
+- On each refresh attempt, the system checks:
+    + Token validity.
+    + Token expiration.
+    + Whether the JTI is listed as revoked.
 
 ## Technologies Used
 - **Express.js**: Backend framework.
@@ -71,9 +90,11 @@ FlowAuth is an authentication system that uses **JWT (JSON Web Token)** and **re
 - **JWT**: For token creation and validation.
 - **bcrypt**: For password hashing.
 - **dotenv**: For environment variable management.
+- **Redis**: For fast, scalable token revocation checking.
 
 ## Objectives
 This system provides a secure way to manage login sessions, ensuring that:
-- Expired tokens cannot be used.
-- Refresh tokens can be revoked if suspicious activity is detected.
+- Expired or revoked tokens cannot be used.
+- Users can stay logged in securely over long periods.
+- Token misuse can be detected and invalidated quickly.
 - User data is protected through password hashing and token-based authentication.

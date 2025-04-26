@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = process.env;
 const uuid = require("uuid").v4;
 const RefreshToken = require("../models/refreshToken.model");
+const { redisClient } = require("../../config/redis");
 
 const generateTokenPair = async (payload) => {
   const jti = uuid();
@@ -27,7 +28,16 @@ const decodeToken = (token) => {
   }
 };
 
+const revokeRefreshToken = async ({ id, jti }) => {
+  await RefreshToken.findOneAndUpdate({ userId: id, jti }, { isRevoked: true });
+
+  // Store the revoked token jti in Redis with a TTL of 30 days
+  await redisClient.set(`revoked_jti:${jti}`, "true", "EX 30 days");
+  return true;
+};
+
 module.exports = {
   generateTokenPair,
   decodeToken,
+  revokeRefreshToken,
 };

@@ -1,6 +1,6 @@
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
-const { generateTokenPair } = require("./token.service");
+const { generateTokenPair, revokeRefreshToken } = require("./token.service");
 const RefreshToken = require("../models/refreshToken.model");
 
 module.exports = {
@@ -47,12 +47,7 @@ module.exports = {
   },
 
   async logout({ id, jti }) {
-    // Find the refresh token by userId and jti
-    await RefreshToken.findOneAndUpdate(
-      { userId: id, jti },
-      { isRevoked: true }
-    );
-    return true;
+    await revokeRefreshToken({ id, jti });
   },
 
   /*
@@ -70,10 +65,7 @@ module.exports = {
 
     // 2.
     if (currentRefreshToken.expiresAt < new Date()) {
-      await RefreshToken.updateOne(
-        { _id: currentRefreshToken._id },
-        { isRevoked: true }
-      );
+      await revokeRefreshToken({ id, jti });
       throw new Error("Refresh token expired");
     }
 
@@ -86,12 +78,7 @@ module.exports = {
     const { accessToken, refreshToken } = await generateTokenPair({
       id,
     });
-
-    await RefreshToken.updateOne(
-      { _id: currentRefreshToken._id },
-      { isRevoked: true }
-    );
-
+    await revokeRefreshToken({ id, jti });
     return {
       accessToken,
       refreshToken,

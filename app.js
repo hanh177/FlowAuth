@@ -2,13 +2,17 @@ require("dotenv").config();
 const express = require("express");
 const userService = require("./src/services/user.service");
 const { decodeToken } = require("./src/services/token.service");
+const { connectRedis, redisClient } = require("./config/redis");
 const RefreshToken = require("./src/models/refreshToken.model");
+
 const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
 require("./config/database")();
+connectRedis();
 
+// middleware to check and validate JWT token
 app.use("/", async (req, res, next) => {
   if (
     req.headers["authorization"] &&
@@ -20,7 +24,11 @@ app.use("/", async (req, res, next) => {
     if (!decoded) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-
+    // in case the refresh token is revoked but the access token is still valid
+    const isTokenRevoked = await redisClient.get(`revoked_jti:${decoded.jti}`);
+    if (isTokenRevoked) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     req.decoded = decoded;
   }
   next();
@@ -71,6 +79,16 @@ app.get("/auth/refresh-tokens", async (req, res) => {
     }
     const tokens = await RefreshToken.find({ userId: req.decoded.id });
     res.status(200).json(tokens);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// get all invoked jti => just for testing
+app.get("/auth/invoked-jti", async (req, res) => {
+  try {
+    const data = await redisClient.keys("revoked_jti:*");
+    res.status(200).json(data);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
