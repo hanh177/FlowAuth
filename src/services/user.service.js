@@ -1,6 +1,10 @@
 const User = require("../models/user.model");
 const bcrypt = require("bcrypt");
-const { generateTokenPair, revokeRefreshToken } = require("./token.service");
+const {
+  generateTokenPair,
+  revokeRefreshToken,
+  hashToken,
+} = require("./token.service");
 const RefreshToken = require("../models/refreshToken.model");
 
 module.exports = {
@@ -47,7 +51,7 @@ module.exports = {
   },
 
   async logout({ id, jti }) {
-    await revokeRefreshToken({ id, jti });
+    await revokeRefreshToken({ userId: id, jti });
   },
 
   /*
@@ -56,32 +60,39 @@ module.exports = {
   3. Check if the refresh token is revoked => may be hacker, revoke all current refresh tokens 
   4. Or elase, revoke the current refresh token and generate a new one 
   */
-  async refreshToken({ id, jti }) {
+  async refreshToken(refreshToken) {
     // 1.
-    const currentRefreshToken = await RefreshToken.findOne({ userId: id, jti });
+    if (!refreshToken) {
+      throw new Error("Refresh token not provided");
+    }
+    const hashedToken = hashToken(refreshToken);
+    const currentRefreshToken = await RefreshToken.findOne({
+      token: hashedToken,
+    });
     if (!currentRefreshToken) {
       throw new Error("Refresh token not found");
     }
 
     // 2.
     if (currentRefreshToken.expiresAt < new Date()) {
-      await revokeRefreshToken({ id, jti });
+      await revokeRefreshToken({ _id: currentRefreshToken._id });
       throw new Error("Refresh token expired");
     }
 
     // 3.
     if (currentRefreshToken.isRevoked) {
+      await revokeRefreshToken({
+        userId: currentRefreshToken.userId,
+        isRevoked: false,
+      });
       throw new Error("Refresh token revoked");
     }
 
     //4.
-    const { accessToken, refreshToken } = await generateTokenPair({
-      id,
+    const data = await generateTokenPair({
+      id: currentRefreshToken.userId,
     });
-    await revokeRefreshToken({ id, jti });
-    return {
-      accessToken,
-      refreshToken,
-    };
+    await revokeRefreshToken({ _id: currentRefreshToken._id });
+    return data;
   },
 };
